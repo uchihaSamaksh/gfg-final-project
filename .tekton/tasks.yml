@@ -1,0 +1,41 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cleanup-workspace
+  namespace: tekton-pipelines
+  labels:
+    app.kubernetes.io/version: "0.1"
+spec:
+  description: >-
+    This task cleans up contents within a specified workspace or directory path
+    to ensure subsequent pipeline runs start fresh or don't leak disk space.
+  params:
+    - name: pathToCleanup
+      type: string
+      description: The relative path or absolute directory inside the workspace to clean up.
+      default: "."
+  workspaces:
+    - name: shared-workspace
+      description: The workspace containing the directories/files to clear.
+  steps:
+    - name: clear-directory
+      image: alpine:3.18
+      securityContext:
+        runAsUser: 0
+      workingDir: $(workspaces.shared-workspace.path)
+      script: |
+        #!/bin/sh
+        set -e
+        
+        TARGET_DIR="$(workspaces.shared-workspace.path)/$(params.pathToCleanup)"
+        
+        echo "Target directory for cleanup: ${TARGET_DIR}"
+        
+        if [ -d "${TARGET_DIR}" ]; then
+          echo "Directory exists. Emptying contents..."
+          # Delete contents inside the directory without deleting the root directory itself
+          find "${TARGET_DIR}" -mindepth 1 -delete
+          echo "Cleanup completed successfully."
+        else
+          echo "Target directory does not exist or is not a directory. Skipping."
+        fi
