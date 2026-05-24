@@ -1,0 +1,33 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: run-nose-tests
+  namespace: tekton-pipelines
+  labels:
+    app.kubernetes.io/version: "0.1"
+spec:
+  description: >-
+    This task executes Python unit tests using the nose testing framework
+    and generates an XUnit execution report.
+  workspaces:
+    - name: shared-workspace
+      description: The workspace containing the repository source code.
+  steps:
+    - name: execute-tests
+      image: python:3.10-slim
+      workingDir: $(workspaces.shared-workspace.path)
+      script: |
+        #!/bin/sh
+        set -e
+        
+        echo "Updating pip and installing testing dependencies..."
+        python -m pip install --upgrade pip
+        pip install nose
+        
+        if [ -f "requirements.txt" ]; then
+          echo "Installing project requirements..."
+          pip install -r requirements.txt
+        fi
+        
+        echo "Running unit tests with nose..."
+        nosetests --with-xunit --xunit-file=nosetests.xml --verbose
